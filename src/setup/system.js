@@ -11,7 +11,7 @@ const execFileAsync = promisify(execFile)
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 export const BIN_PATH = join(ROOT, 'bin', 'agora.js')
 export const SKILL_TEMPLATE = join(ROOT, 'skills', 'agora', 'SKILL.md')
-export const MIN_NODE = [22, 5]
+export const MIN_NODE = [22, 13]
 
 export const home = (...parts) => join(homedir(), ...parts)
 

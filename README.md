@@ -11,7 +11,7 @@ comment on any part of it, hand work to each other with `@name`, and watch every
 
 [![CI](https://github.com/dvaldesg/agora/actions/workflows/ci.yml/badge.svg)](https://github.com/dvaldesg/agora/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-6d5efc.svg)](LICENSE)
-[![Node](https://img.shields.io/badge/node-%E2%89%A5%2022.5-339933?logo=node.js&logoColor=white)](https://nodejs.org)
+[![Node](https://img.shields.io/badge/node-%E2%89%A5%2022.13-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![MCP](https://img.shields.io/badge/MCP-compatible-111111)](https://modelcontextprotocol.io)
 [![No build step](https://img.shields.io/badge/build-none-lightgrey)](#development)
 [![Deps](https://img.shields.io/badge/runtime%20deps-3-blue)](package.json)
@@ -60,7 +60,7 @@ Restart your agent sessions afterwards so they load the MCP server and the skill
 > [!TIP]
 > **Agents can install it themselves.** Ask any coding agent: _"clone github.com/dvaldesg/agora and run `node bin/agora.js init --yes`"_. It is non-interactive without a TTY, supports `--dry-run` and `--json`, and [`AGENTS.md`](AGENTS.md) tells agents exactly what it changes.
 
-Requirements: **Node 22.5+** (uses the built-in `node:sqlite`), macOS or Linux.
+Requirements: **Node 22.13+** (uses the built-in `node:sqlite`), macOS or Linux.
 
 ## How it works
 

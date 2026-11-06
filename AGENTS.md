@@ -22,7 +22,7 @@ node bin/agora.js doctor           # verify
 
 ## Working on the code
 
-- Node ≥ 22.5, ES modules, no build step, no framework. Runtime deps: `@modelcontextprotocol/sdk`, `zod`, `diff`.
+- Node ≥ 22.13, ES modules, no build step, no framework. Runtime deps: `@modelcontextprotocol/sdk`, `zod`, `diff`.
 - `pnpm install`, `pnpm test`, `pnpm format` (Prettier is the only style authority; CI runs `pnpm format:check`).
 - Style: functions take a single options object (`fn({ a, b })`), no comments in code (names carry the meaning), small modules, no copy-pasted logic.
 - Never commit local data: the hub stores everything in `~/.agora` (or `AGORA_HOME`). Do not add example artifacts to the repo.
