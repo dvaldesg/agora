@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AGORA</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236d5efc'/%3E%3Cg fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12 16 6l10 6z'/%3E%3Cpath d='M9 15v8M13.7 15v8M18.3 15v8M23 15v8M6 26h20'/%3E%3C/g%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <button class="icon-btn" id="toggle-sidebar" title="Artifacts" aria-label="Toggle artifacts">
+        <svg viewBox="0 0 20 20" width="18" height="18">
+          <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+        </svg>
+      </button>
+      <div class="brand">
+        <span class="logo" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12 16 5.5 27 12z" />
+            <path d="M8.5 15.5v8M13.8 15.5v8M18.2 15.5v8M23.5 15.5v8M5 27h22" />
+          </svg>
+        </span>
+        <span class="wordmark">AGORA</span>
+      </div>
+      <div class="crumb">
+        <span id="art-title" class="crumb-title"></span>
+        <button id="versions-btn" class="version-btn" hidden title="Version history"></button>
+        <span id="art-meta" class="crumb-meta"></span>
+      </div>
+      <div id="presence" class="presence"></div>
+      <button class="btn" id="comment-mode" title="Comment on an element or drag an area (C)">
+        <svg viewBox="0 0 20 20" width="16" height="16">
+          <path d="M4 4h12v9H9l-4 3v-3H4z" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round" />
+        </svg>
+        <span>Comment</span>
+      </button>
+      <button class="btn" id="toggle-panel" title="Comments and agents chat">
+        <svg viewBox="0 0 20 20" width="16" height="16">
+          <path d="M3 4h14v12H3zM12.5 4v12" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round" />
+        </svg>
+        <span id="panel-count" class="count"></span>
+      </button>
+      <button class="btn btn-primary" id="share">Share</button>
+    </header>
+
+    <div class="layout">
+      <main class="stage">
+        <iframe id="view" title="Artifact" sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads"></iframe>
+        <div id="empty" class="empty" hidden></div>
+        <div id="mode-hint" class="mode-hint" hidden>Click an element or drag to select an area · Esc to cancel</div>
+        <div id="version-banner" class="version-banner" hidden></div>
+      </main>
+
+      <aside id="sidebar" class="sidebar floating is-closed">
+        <div class="sidebar-head">
+          <input id="search" class="input" type="search" placeholder="Search artifacts" />
+          <label class="btn btn-ghost" title="Import an HTML file">
+            + New
+            <input id="import" type="file" accept=".html,text/html" hidden />
+          </label>
+        </div>
+        <ul id="artifact-list" class="artifact-list"></ul>
+      </aside>
+
+      <div id="versions-menu" class="versions-menu floating is-closed">
+        <div class="menu-head">Version history <span id="versions-note" class="muted"></span></div>
+        <ul id="versions-list" class="versions-list"></ul>
+      </div>
+
+      <section id="panel" class="panel floating is-closed">
+        <nav class="tabs">
+          <button class="tab is-active" data-tab="comments">Comments <span id="comments-count" class="count"></span></button>
+          <button class="tab" data-tab="chat">Agents chat <span id="chat-count" class="count"></span></button>
+          <button class="icon-btn close-btn" id="close-panel" title="Close" aria-label="Close panel">×</button>
+        </nav>
+        <div id="tab-comments" class="tab-body">
+          <div class="filters">
+            <button class="chip is-active" data-filter="open">Open</button>
+            <button class="chip" data-filter="resolved">Resolved</button>
+          </div>
+          <div id="threads" class="threads"></div>
+          <form id="comment-form" class="composer">
+            <div id="anchor" class="anchor-slot" hidden></div>
+            <textarea id="comment-body" class="input" rows="3" placeholder="Comment… type @ to mention anyone"></textarea>
+            <div class="composer-row">
+              <select id="comment-assignee" class="input select"></select>
+              <button class="btn btn-primary" type="submit">Comment</button>
+            </div>
+          </form>
+        </div>
+        <div id="tab-chat" class="tab-body" hidden>
+          <div id="messages" class="messages"></div>
+          <form id="message-form" class="composer">
+            <textarea id="message-body" class="input" rows="2" placeholder="Message the agents… type @ to mention"></textarea>
+            <div class="composer-row">
+              <select id="message-to" class="input select"></select>
+              <button class="btn btn-primary" type="submit">Send</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+
+    <dialog id="share-dialog" class="dialog">
+      <form method="dialog">
+        <h2>Share</h2>
+        <div id="share-body"></div>
+        <div class="dialog-actions"><button class="btn">Close</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="diff-dialog" class="dialog dialog-wide">
+      <form method="dialog">
+        <h2 id="diff-title">Diff</h2>
+        <pre id="diff-body" class="diff"></pre>
+        <div class="dialog-actions"><button class="btn">Close</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="name-dialog" class="dialog">
+      <form id="name-form" method="dialog">
+        <h2>Who's joining?</h2>
+        <p class="muted">Your name shows up next to your comments, in the presence bar, and is how others @mention you.</p>
+        <input id="name-input" class="input" required maxlength="40" placeholder="Your name" />
+        <div class="dialog-actions"><button class="btn btn-primary">Join</button></div>
+      </form>
+    </dialog>
+
+    <div id="toasts" class="toasts"></div>
+    <script type="module" src="/static/js/main.js"></script>
+  </body>
+</html>

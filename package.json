@@ -1,0 +1,56 @@
+{
+  "name": "agora",
+  "version": "1.0.0",
+  "description": "Shared live HTML artifacts for humans and any LLM: presence, anchored comments, versions, interactive state and agent hand-offs over MCP.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Diego Valdés",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dvaldesg/agora.git"
+  },
+  "homepage": "https://github.com/dvaldesg/agora#readme",
+  "bugs": {
+    "url": "https://github.com/dvaldesg/agora/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "codex",
+    "gemini",
+    "cursor",
+    "ai-agents",
+    "artifacts",
+    "collaboration",
+    "html"
+  ],
+  "bin": {
+    "agora": "bin/agora.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "web",
+    "skills"
+  ],
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "start": "node bin/agora.js daemon",
+    "setup": "node bin/agora.js init",
+    "test": "node --no-warnings --test \"test/**/*.test.js\"",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "diff": "^9.0.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.10"
+  },
+  "packageManager": "pnpm@10.32.1"
+}

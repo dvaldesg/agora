@@ -1,0 +1,17 @@
+node_modules/
+
+# local hub data (never commit artifacts, databases, tokens or logs)
+.agora/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+share-token
+sessions/
+*.log
+*.agora-backup
+
+# os / editors
+.DS_Store
+.idea/
+.vscode/
