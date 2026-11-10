@@ -239,55 +239,95 @@ test('deleting an artifact removes everything attached to it and announces it', 
   )
 })
 
-test('artifact share links only open that artifact, and proxied requests need a token', async () => {
+const asGuest = async ({ path, method = 'GET', body, cookie }) => {
+  const headers = { 'x-forwarded-for': '203.0.113.7', ...(cookie ? { cookie } : {}), ...(body ? { 'content-type': 'application/json' } : {}) }
+  const res = await fetch(base + path, { method, headers, body: body ? JSON.stringify(body) : undefined })
+  return {
+    status: res.status,
+    cookie: res.headers.get('set-cookie')?.split(';')[0],
+    data: res.headers.get('content-type')?.includes('json') ? await res.json() : null,
+  }
+}
+
+const openLink = async ({ artifactId, level }) => {
+  const { data: link } = await call({ path: `/api/artifacts/${artifactId}/links`, method: 'POST', actor: 'diego', body: { label: 'mamá', level } })
+  const opened = await asGuest({ path: `/a/${artifactId}?s=${link.token}` })
+  return { link, opened, cookie: opened.cookie }
+}
+
+test('proxied requests without a token are rejected', async () => {
+  assert.equal((await asGuest({ path: '/api/artifacts' })).status, 401)
+})
+
+test('read-only links open one artifact and cannot write anything', async () => {
   const { id: sharedId } = await createArtifact()
   const { id: privateId } = await createArtifact()
-  const remote = { 'x-forwarded-for': '203.0.113.7' }
-  const as = async ({ path, method = 'GET', body, cookie }) => {
-    const headers = { ...remote, ...(cookie ? { cookie } : {}), ...(body ? { 'content-type': 'application/json' } : {}) }
-    const res = await fetch(base + path, { method, headers, body: body ? JSON.stringify(body) : undefined })
-    return {
-      status: res.status,
-      cookie: res.headers.get('set-cookie')?.split(';')[0],
-      data: res.headers.get('content-type')?.includes('json') ? await res.json() : null,
-    }
-  }
-
-  assert.equal((await as({ path: '/api/artifacts' })).status, 401)
-
-  const { data: link } = await call({ path: `/api/artifacts/${sharedId}/links`, method: 'POST', actor: 'diego', body: { label: 'mamá' } })
+  const { link, opened, cookie } = await openLink({ artifactId: sharedId, level: 'read' })
+  assert.equal(link.level, 'read')
   assert.match(link.url, new RegExp(`/a/${sharedId}\\?s=${link.token}$`))
-
-  const opened = await as({ path: `/a/${sharedId}?s=${link.token}` })
   assert.equal(opened.status, 200)
-  const cookie = opened.cookie
   assert.match(cookie, /^agora_s=/)
 
-  const session = await as({ path: '/api/session', cookie })
-  assert.deepEqual([session.data.scope, session.data.artifactId], ['artifact', sharedId])
+  const session = await asGuest({ path: '/api/session', cookie })
+  assert.deepEqual([session.data.scope, session.data.artifactId, session.data.level], ['artifact', sharedId, 'read'])
   assert.deepEqual(
-    (await as({ path: '/api/artifacts', cookie })).data.artifacts.map((artifact) => artifact.id),
+    (await asGuest({ path: '/api/artifacts', cookie })).data.artifacts.map((artifact) => artifact.id),
     [sharedId],
   )
-  assert.equal((await as({ path: `/api/artifacts/${sharedId}`, cookie })).status, 200)
-  assert.equal((await as({ path: `/raw/${sharedId}`, cookie })).status, 200)
-  assert.equal((await as({ path: `/api/artifacts/${sharedId}/state/k`, method: 'PUT', cookie, body: { value: 1, author: 'mamá' } })).status, 200)
-  assert.equal((await as({ path: `/api/artifacts/${sharedId}/comments`, method: 'POST', cookie, body: { body: 'hola', author: 'mamá' } })).status, 201)
+  for (const path of [`/api/artifacts/${sharedId}`, `/raw/${sharedId}`, `/api/artifacts/${sharedId}/comments`, `/api/artifacts/${sharedId}/state?key=k`]) {
+    assert.equal((await asGuest({ path, cookie })).status, 200, path)
+  }
 
   const forbidden = [
     { path: `/api/artifacts/${privateId}` },
     { path: `/raw/${privateId}` },
-    { path: `/api/artifacts/${privateId}/state?key=k` },
+    { path: `/api/artifacts/${sharedId}/comments`, method: 'POST', body: { body: 'hola', author: 'mamá' } },
+    { path: `/api/artifacts/${sharedId}/state/k`, method: 'PUT', body: { value: 1, author: 'mamá' } },
     { path: `/api/artifacts/${sharedId}`, method: 'DELETE' },
     { path: `/api/artifacts/${sharedId}`, method: 'PUT', body: { baseVersion: 1, html: '<p>x</p>' } },
     { path: `/api/artifacts/${sharedId}/links` },
+    { path: '/api/messages' },
     { path: '/api/hooks' },
   ]
-  for (const request of forbidden) assert.equal((await as({ ...request, cookie })).status, 403, `${request.method ?? 'GET'} ${request.path}`)
-
-  const scopedMessage = await as({ path: '/api/messages', method: 'POST', cookie, body: { to: 'all', body: 'hola', author: 'mamá', artifactId: privateId } })
-  assert.equal(scopedMessage.data.artifactId, sharedId)
+  for (const request of forbidden) assert.equal((await asGuest({ ...request, cookie })).status, 403, `${request.method ?? 'GET'} ${request.path}`)
 
   await call({ path: `/api/links/${link.token}`, method: 'DELETE' })
-  assert.equal((await as({ path: `/api/artifacts/${sharedId}`, cookie })).status, 401)
+  assert.equal((await asGuest({ path: `/api/artifacts/${sharedId}`, cookie })).status, 401)
+})
+
+test('comment links can comment but never tag or wake an agent', async () => {
+  const { id } = await createArtifact()
+  const { cookie } = await openLink({ artifactId: id, level: 'comment' })
+  const { data: health } = await call({ path: '/api/health' })
+
+  const comment = await asGuest({
+    path: `/api/artifacts/${id}/comments`,
+    method: 'POST',
+    cookie,
+    body: { body: '@codex cambia esto', assignee: 'codex', author: 'mamá' },
+  })
+  assert.equal(comment.status, 201)
+  assert.equal(comment.data.assignee, null)
+  assert.equal(comment.data.guest, true)
+
+  assert.equal((await asGuest({ path: `/api/comments/${comment.data.id}/status`, method: 'POST', cookie, body: { status: 'resolved' } })).status, 403)
+  assert.equal((await asGuest({ path: '/api/messages', method: 'POST', cookie, body: { to: 'codex', body: 'hola' } })).status, 403)
+  assert.equal((await asGuest({ path: `/api/artifacts/${id}/state/k`, method: 'PUT', cookie, body: { value: 1 } })).status, 403)
+
+  const participants = (await asGuest({ path: '/api/participants', cookie })).data.participants
+  assert.ok(participants.every((participant) => participant.kind === 'human'))
+
+  for (const agent of ['codex', 'claude']) {
+    const woken = await call({ path: `/api/events?since=${health.seq}&agent=${agent}&all=1&timeout=100` })
+    assert.deepEqual(woken.data.events, [], agent)
+  }
+
+  const owner = await call({ path: '/api/events?since=' + health.seq + '&timeout=100' })
+  assert.equal(owner.data.events[0].type, 'comment.created')
+})
+
+test('links reject unknown levels', async () => {
+  const { id } = await createArtifact()
+  const res = await call({ path: `/api/artifacts/${id}/links`, method: 'POST', body: { level: 'admin' } })
+  assert.equal(res.status, 400)
 })

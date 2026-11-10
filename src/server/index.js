@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { createPresence } from '../presence.js'
 import { createBus } from './bus.js'
 import { createDirectory } from './directory.js'
-import { FULL_ACCESS, HttpError, LOOPBACK, SCOPES, artifactAccess, isScoped, parseCookies, sendJson, statusOf } from './http.js'
+import { FULL_ACCESS, HttpError, LINK_LEVELS, LOOPBACK, SCOPES, artifactAccess, isScoped, parseCookies, sendJson, statusOf } from './http.js'
 import { cleanName } from './input.js'
 import { artifactRoutes } from './routes/artifacts.js'
 import { commentRoutes } from './routes/comments.js'
@@ -95,11 +95,12 @@ export function startServer({ store, port, lan = false, token = null, maxVersion
     const link = linkToken ? store.findShareLink({ token: linkToken }) : null
     if (!link) return null
     if (url.searchParams.has('s')) rememberCookie({ res, name: 'agora_s', value: link.token })
-    return artifactAccess({ artifactId: link.artifactId })
+    return artifactAccess({ artifactId: link.artifactId, level: link.level })
   }
 
   const permits = ({ access, match, params }) => {
     if (!isScoped({ access })) return true
+    if ((LINK_LEVELS[access.level] ?? 0) < LINK_LEVELS[match.level]) return false
     const checks = {
       [SCOPES.open]: () => true,
       [SCOPES.filtered]: () => true,

@@ -1,5 +1,6 @@
-import { HttpError, SCOPES, created, readBody, route } from '../http.js'
+import { HttpError, SCOPES, created, isScoped, readBody, route } from '../http.js'
 import { cleanAnchor } from '../input.js'
+import { PEOPLE_ONLY } from '../../relevance.js'
 
 const STATUSES = new Set(['open', 'claimed', 'resolved'])
 
@@ -21,14 +22,16 @@ export function commentRoutes({ store, bus, directory, actorOf }) {
       method: 'POST',
       path: /^\/api\/artifacts\/([\w-]+)\/comments$/,
       scope: SCOPES.artifact,
-      handler: async ({ req, url, params: [id] }) => {
+      level: 'comment',
+      handler: async ({ req, url, params: [id], access }) => {
         const body = await readBody(req)
         const text = String(body.body ?? '').trim()
         if (!text) throw new HttpError({ status: 400, message: 'body is required' })
         const author = actorOf({ req, body, url })
         const parent = body.parentId ? store.getComment({ id: body.parentId }) : null
         if (parent && parent.artifactId !== id) throw new HttpError({ status: 400, message: 'parent comment belongs to another artifact' })
-        const assignee = directory.resolveName({ name: body.assignee }) ?? directory.mentionsIn({ body: text })[0] ?? null
+        const guest = isScoped({ access })
+        const assignee = guest ? null : (directory.resolveName({ name: body.assignee }) ?? directory.mentionsIn({ body: text })[0] ?? null)
         const version = Number.isInteger(body.version) ? store.getArtifact({ id, version: body.version }).viewedVersion : undefined
         const comment = store.createComment({
           artifactId: id,
@@ -38,12 +41,13 @@ export function commentRoutes({ store, bus, directory, actorOf }) {
           assignee,
           anchor: parent ? null : cleanAnchor({ anchor: body.anchor }),
           version,
+          guest,
         })
         bus.emit({
           type: 'comment.created',
           artifactId: id,
           actor: author,
-          target: assignee ?? replyTarget({ parent, author }),
+          target: guest ? PEOPLE_ONLY : (assignee ?? replyTarget({ parent, author })),
           payload: comment,
         })
         return created({ data: comment })
@@ -53,7 +57,6 @@ export function commentRoutes({ store, bus, directory, actorOf }) {
     route({
       method: 'POST',
       path: /^\/api\/comments\/([\w-]+)\/status$/,
-      scope: SCOPES.comment,
       handler: async ({ req, url, params: [commentId] }) => {
         const body = await readBody(req)
         if (!STATUSES.has(body.status)) throw new HttpError({ status: 400, message: 'status must be open|claimed|resolved' })

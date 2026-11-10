@@ -17,10 +17,11 @@ export function peopleRoutes({ store, bus, presence, directory, actorOf }) {
       method: 'GET',
       path: /^\/api\/participants$/,
       scope: SCOPES.open,
-      handler: () => {
+      handler: ({ access }) => {
         const online = new Set(presence.list().map((peer) => peer.name.toLowerCase()))
+        const visible = store.listParticipants().filter((participant) => !isScoped({ access }) || participant.kind === 'human')
         return {
-          participants: store.listParticipants().map((participant) => ({ ...participant, online: online.has(participant.name.toLowerCase()) })),
+          participants: visible.map((participant) => ({ ...participant, online: online.has(participant.name.toLowerCase()) })),
         }
       },
     }),
@@ -40,7 +41,6 @@ export function peopleRoutes({ store, bus, presence, directory, actorOf }) {
     route({
       method: 'GET',
       path: /^\/api\/messages$/,
-      scope: SCOPES.filtered,
       handler: ({ url, access }) => ({
         messages: store.listMessages({
           artifactId: isScoped({ access }) ? access.artifactId : url.searchParams.get('artifact') || undefined,
@@ -53,7 +53,6 @@ export function peopleRoutes({ store, bus, presence, directory, actorOf }) {
     route({
       method: 'POST',
       path: /^\/api\/messages$/,
-      scope: SCOPES.filtered,
       handler: async ({ req, url, access }) => {
         const body = await readBody(req)
         const text = String(body.body ?? '').trim()

@@ -31,7 +31,6 @@ export function stateRoutes({ store, bus, actorOf }) {
     route({
       method: 'PUT',
       path: /^\/api\/artifacts\/([\w-]+)\/state\/([^/]+)$/,
-      scope: SCOPES.artifact,
       handler: async ({ req, url, params: [id, rawKey] }) => {
         const body = await readBody(req)
         if (!('value' in body)) throw new HttpError({ status: 400, message: 'value is required' })
@@ -48,7 +47,6 @@ export function stateRoutes({ store, bus, actorOf }) {
     route({
       method: 'DELETE',
       path: /^\/api\/artifacts\/([\w-]+)\/state\/([^/]+)$/,
-      scope: SCOPES.artifact,
       handler: ({ req, url, params: [id, rawKey] }) => {
         const key = decodeURIComponent(rawKey)
         const actor = actorOf({ req, url })

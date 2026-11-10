@@ -76,6 +76,7 @@ create table if not exists share_links (
   token text primary key,
   artifact_id text not null references artifacts(id),
   label text,
+  level text not null default 'read',
   created_by text not null,
   created_at text not null
 );
@@ -123,6 +124,7 @@ const toComment = (row) => ({
   assignee: row.assignee,
   status: row.status,
   claimedBy: row.claimed_by,
+  guest: Boolean(row.guest),
   anchor: anchorOf({ row }),
   version: row.version,
   createdAt: row.created_at,
@@ -161,6 +163,12 @@ const migrate = ({ db }) => {
     .all()
     .map((column) => column.name)
   if (!columns.includes('anchor')) db.exec('alter table comments add column anchor text')
+  if (!columns.includes('guest')) db.exec('alter table comments add column guest integer not null default 0')
+  const linkColumns = db
+    .prepare('pragma table_info(share_links)')
+    .all()
+    .map((column) => column.name)
+  if (!linkColumns.includes('level')) db.exec("alter table share_links add column level text not null default 'read'")
 }
 
 export function openStore({ file, maxVersions = 50 }) {
@@ -298,15 +306,27 @@ export function openStore({ file, maxVersions = 50 }) {
     return toComment(row)
   }
 
-  const createComment = ({ artifactId, parentId, body, author, assignee, anchor, version }) => {
+  const createComment = ({ artifactId, parentId, body, author, assignee, anchor, version, guest = false }) => {
     const artifact = requireArtifactRow({ id: artifactId })
     const parent = parentId ? getComment({ id: parentId }) : null
     const id = newId({ prefix: 'c' })
     const at = now()
     db.prepare(
-      `insert into comments (id, artifact_id, parent_id, body, author, assignee, status, anchor, version, created_at, updated_at)
-       values (?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?)`,
-    ).run(id, artifactId, parent?.id ?? null, body, author, assignee ?? null, anchor ? JSON.stringify(anchor) : null, version ?? artifact.version, at, at)
+      `insert into comments (id, artifact_id, parent_id, body, author, assignee, status, anchor, version, guest, created_at, updated_at)
+       values (?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?)`,
+    ).run(
+      id,
+      artifactId,
+      parent?.id ?? null,
+      body,
+      author,
+      assignee ?? null,
+      anchor ? JSON.stringify(anchor) : null,
+      version ?? artifact.version,
+      guest ? 1 : 0,
+      at,
+      at,
+    )
     return getComment({ id })
   }
 
@@ -420,7 +440,14 @@ export function openStore({ file, maxVersions = 50 }) {
 
   const deleteHook = ({ id }) => db.prepare('delete from hooks where id = ?').run(id).changes > 0
 
-  const toShareLink = (row) => ({ token: row.token, artifactId: row.artifact_id, label: row.label, createdBy: row.created_by, createdAt: row.created_at })
+  const toShareLink = (row) => ({
+    token: row.token,
+    artifactId: row.artifact_id,
+    label: row.label,
+    level: row.level,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+  })
 
   const listShareLinks = ({ artifactId }) => db.prepare('select * from share_links where artifact_id = ? order by created_at').all(artifactId).map(toShareLink)
 
@@ -429,13 +456,14 @@ export function openStore({ file, maxVersions = 50 }) {
     return row ? toShareLink(row) : null
   }
 
-  const createShareLink = ({ artifactId, label, author }) => {
+  const createShareLink = ({ artifactId, label, level, author }) => {
     requireArtifactRow({ id: artifactId })
     const token = randomBytes(18).toString('base64url')
-    db.prepare('insert into share_links (token, artifact_id, label, created_by, created_at) values (?, ?, ?, ?, ?)').run(
+    db.prepare('insert into share_links (token, artifact_id, label, level, created_by, created_at) values (?, ?, ?, ?, ?, ?)').run(
       token,
       artifactId,
       label ?? null,
+      level,
       author,
       now(),
     )

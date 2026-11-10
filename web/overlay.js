@@ -6,6 +6,8 @@
   const params = new URLSearchParams(location.search)
   const initialScroll = Number(params.get('sy') || 0)
   const viewer = params.get('as') || 'anonymous'
+  const readOnly = params.get('ro') === '1'
+  const READ_ONLY_ERROR = 'This link is read-only'
   const DRAG_THRESHOLD = 6
   const MAX_TARGETS = 30
   const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'LINK', 'META', 'HEAD', 'TITLE', 'NOSCRIPT', 'BR'])
@@ -48,10 +50,11 @@
 
   window.agora = Object.freeze({
     user: viewer,
+    readOnly,
     state: Object.freeze({
       get: (key, { scope = 'shared' } = {}) => stateRequest({ op: 'get', key, scope }),
-      set: (key, value, { scope = 'shared' } = {}) => stateRequest({ op: 'set', key, value, scope }),
-      delete: (key, { scope = 'shared' } = {}) => stateRequest({ op: 'delete', key, scope }),
+      set: (key, value, { scope = 'shared' } = {}) => (readOnly ? Promise.reject(new Error(READ_ONLY_ERROR)) : stateRequest({ op: 'set', key, value, scope })),
+      delete: (key, { scope = 'shared' } = {}) => (readOnly ? Promise.reject(new Error(READ_ONLY_ERROR)) : stateRequest({ op: 'delete', key, scope })),
       list: ({ scope = 'shared', prefix = '' } = {}) => stateRequest({ op: 'list', scope, prefix }),
       subscribe: (callback) => {
         stateListeners.add(callback)

@@ -236,6 +236,7 @@ const votes = await agora.state.list({ prefix: 'vote:' }) // [{ key, value, upda
 await agora.state.delete('tasks')
 const stop = agora.state.subscribe(({ key, value, scope, deleted, by }) => render()) // live updates
 agora.user // the viewer's name
+agora.readOnly // true when opened through a read-only or comment link: disable your inputs
 ```
 
 Values are any JSON up to 1 MB per key. The page stays sandboxed (no same-origin access); calls travel over `postMessage` through the UI to the hub. Agents read and write the same data with `agora_state`.
@@ -318,7 +319,10 @@ Everything the UI and the MCP server do goes through this API, so any script can
 - The hub listens on `127.0.0.1` only. Nothing leaves your machine unless you add a webhook or share the port.
 - Two kinds of links, both sent once and then kept as a cookie:
   - **Owner link** (`agora daemon --lan`, Share → All of AGORA): full access to every artifact. Only for your own devices.
-  - **Artifact link** (Share → Only this artifact): opens that one artifact. Guests can use it, comment and write its state, but cannot see other artifacts, edit the HTML, restore versions, delete, or manage links and hooks. Each link can be labeled and revoked.
+  - **Artifact links** (Share → Only this artifact) open that one artifact, with a label and a level, and can be revoked at any time:
+    - **Read only**: view the artifact and its comments. No checks, no state writes, no comments.
+    - **Read + comment**: also comment and reply. Mentions and assignments of agents are ignored and guest comments never reach an agent, so only you can hand work to an LLM. Guest comments are marked as such.
+    - Guests never see other artifacts, the agents chat or links, and cannot edit the HTML, restore versions or delete.
 - Requests that arrive through a proxy or tunnel (`X-Forwarded-For`, `Forwarded`, `X-Real-IP`) are never treated as local, so a tunnel does not bypass the tokens. Prefer private tunnels (Tailscale, VS Code private port forwarding).
 - Names are self-declared: share links with people you trust.
 - Artifacts run in a sandboxed iframe without same-origin access to the UI or the API.

@@ -7,6 +7,8 @@ const copyLink = async ({ value, input }) => {
   toast({ text: 'Link copied' })
 }
 
+const LEVEL_LABELS = { read: 'Read only', comment: 'Read + comment' }
+
 const linkField = ({ label, value, extra }) => {
   const input = h('input', { class: 'input', readonly: true, value })
   return h(
@@ -36,7 +38,13 @@ const revokeButton = ({ link }) =>
 
 const renderArtifactLinks = async () => {
   const { links, lanEnabled } = await api({ path: `/api/artifacts/${state.currentId}/links` })
-  const rows = links.map((link) => linkField({ label: link.label ? `For ${link.label}` : 'Link', value: link.url, extra: revokeButton({ link }) }))
+  const rows = links.map((link) =>
+    linkField({
+      label: `${link.label ? `For ${link.label}` : 'Link'} · ${LEVEL_LABELS[link.level] ?? link.level}`,
+      value: link.url,
+      extra: revokeButton({ link }),
+    }),
+  )
   const notes = [
     links.length ? null : hint('No links yet.'),
     lanEnabled ? null : hint('Links open on other devices once the hub runs with ', h('code', null, 'agora daemon --lan'), ' or behind a private tunnel.'),
@@ -47,7 +55,8 @@ const renderArtifactLinks = async () => {
 const createLink = async (event) => {
   event.preventDefault()
   const label = $('#new-link-label').value.trim()
-  await api({ path: `/api/artifacts/${state.currentId}/links`, method: 'POST', body: { label, author: state.name } })
+  const level = $('#new-link-level').value
+  await api({ path: `/api/artifacts/${state.currentId}/links`, method: 'POST', body: { label, level, author: state.name } })
   $('#new-link-label').value = ''
   await renderArtifactLinks()
 }
@@ -57,12 +66,19 @@ const artifactSection = () =>
     'section',
     { class: 'share-section' },
     h('h3', null, 'Only this artifact'),
-    hint('People with the link can open and use this artifact and comment on it. They cannot see your other artifacts or change its HTML.'),
+    hint(
+      'Guests only see this artifact. Read only: they can look, nothing else. Read + comment: they can also comment and reply, but cannot tag agents or wake them up. Nobody but you can change the HTML or its data.',
+    ),
     h('div', { id: 'artifact-links' }),
     h(
       'form',
       { class: 'share-field share-new', onsubmit: (event) => createLink(event).catch((error) => toast({ text: error.message })) },
       h('input', { class: 'input', id: 'new-link-label', maxlength: '60', placeholder: 'Who is it for? (optional)' }),
+      h(
+        'select',
+        { class: 'input select', id: 'new-link-level', 'aria-label': 'Link permissions' },
+        Object.entries(LEVEL_LABELS).map(([value, label]) => h('option', { value }, label)),
+      ),
       h('button', { class: 'btn btn-primary', type: 'submit' }, 'Create link'),
     ),
   )

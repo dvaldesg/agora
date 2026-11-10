@@ -63,6 +63,7 @@ const note = ({ comment, isRoot }) =>
         'div',
         { class: 'note-head' },
         h('span', { class: 'note-author' }, comment.author),
+        comment.guest ? h('span', { class: 'pill is-guest', title: 'Wrote through a shared link; the name is not verified' }, 'guest') : null,
         h('span', { class: 'note-time' }, `${timeAgo({ iso: comment.createdAt })} · v${comment.version}`),
         isRoot && comment.assignee ? h('span', { class: 'pill is-assignee' }, `@${comment.assignee}`) : null,
         isRoot ? statusPill({ comment }) : null,
@@ -129,7 +130,7 @@ const threadCard = ({ thread }) => {
       isReplying ? null : h('button', { class: 'btn btn-sm', onclick: () => openReply({ thread }) }, 'Reply'),
       h(
         'button',
-        { class: 'btn btn-sm', onclick: () => setThreadStatus({ thread, status: isResolved ? 'open' : 'resolved' }) },
+        { class: 'btn btn-sm status-btn', onclick: () => setThreadStatus({ thread, status: isResolved ? 'open' : 'resolved' }) },
         isResolved ? 'Reopen' : 'Resolve',
       ),
     ),

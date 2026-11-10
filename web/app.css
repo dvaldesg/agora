@@ -108,6 +108,12 @@ body.is-guest .brand {
   cursor: default;
   pointer-events: none;
 }
+body.is-guest .tab[data-tab='chat'],
+body.is-guest #comment-assignee,
+body.is-guest .status-btn,
+body.guest-read #comment-mode,
+body.guest-read #comment-form,
+body.guest-read .thread-actions,
 body.is-guest .brand-caret,
 body.is-guest #share,
 body.is-guest .version-actions,
@@ -834,6 +840,10 @@ textarea.input {
 .pill.is-resolved {
   background: rgba(31, 157, 85, 0.14);
   color: var(--ok);
+}
+.pill.is-guest {
+  background: var(--surface-2);
+  color: var(--muted);
 }
 .pill.is-assignee {
   background: var(--accent-soft);

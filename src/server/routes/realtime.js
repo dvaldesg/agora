@@ -5,6 +5,7 @@ import { cleanName } from '../input.js'
 const MAX_POLL_MS = 55_000
 const HEARTBEAT_MS = 15_000
 const PEER_EVENTS = new Set(['hello', 'presence'])
+const OWNER_ONLY_EVENTS = new Set(['message.sent'])
 
 const peersFor = ({ peers, access }) => (isScoped({ access }) ? peers.filter((peer) => peer.artifactId === access.artifactId) : peers)
 
@@ -12,6 +13,7 @@ const projectionFor = ({ access }) => {
   if (!isScoped({ access })) return null
   return ({ data }) => {
     if (PEER_EVENTS.has(data.type)) return { ...data, peers: peersFor({ peers: data.peers, access }) }
+    if (OWNER_ONLY_EVENTS.has(data.type)) return null
     return data.artifactId === access.artifactId ? data : null
   }
 }

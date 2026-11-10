@@ -2,7 +2,7 @@ import { api } from './api.js'
 import { $, h, timeAgo } from './dom.js'
 import { renderPanelCount } from './layout.js'
 import { avatar, isAgent } from './people.js'
-import { state } from './store.js'
+import { isGuest, state } from './store.js'
 
 const fillSelect = ({ select, first, others }) => {
   const previous = select.value
@@ -59,6 +59,7 @@ export const markChatRead = () => {
 }
 
 export const refreshMessages = async () => {
+  if (isGuest()) return
   const query = state.currentId ? `?artifact=${state.currentId}` : ''
   state.messages = (await api({ path: `/api/messages${query}` })).messages
   renderMessages()

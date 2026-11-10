@@ -14,11 +14,13 @@ export class HttpError extends Error {
 
 export const SCOPES = Object.freeze({ open: 'open', artifact: 'artifact', comment: 'comment', filtered: 'filtered' })
 
-export const route = ({ method, path, handler, scope }) => ({ method, path, handler, scope })
+export const LINK_LEVELS = Object.freeze({ read: 1, comment: 2 })
+
+export const route = ({ method, path, handler, scope, level = 'read' }) => ({ method, path, handler, scope, level })
 
 export const FULL_ACCESS = Object.freeze({ scope: 'full' })
 
-export const artifactAccess = ({ artifactId }) => Object.freeze({ scope: 'artifact', artifactId })
+export const artifactAccess = ({ artifactId, level }) => Object.freeze({ scope: 'artifact', artifactId, level })
 
 export const isScoped = ({ access }) => access.scope === 'artifact'
 

@@ -1,5 +1,5 @@
 import { $ } from './dom.js'
-import { openThreads, shownVersion, state } from './store.js'
+import { isGuest, openThreads, shownVersion, state } from './store.js'
 
 export const frame = () => $('#view')
 
@@ -9,7 +9,7 @@ export const loadFrame = () => {
   if (!state.artifact) return
   state.frameVersion = shownVersion()
   state.anchorStatus = new Map()
-  const query = new URLSearchParams({ v: String(shownVersion()), sy: String(state.scrollY), as: state.name })
+  const query = new URLSearchParams({ v: String(shownVersion()), sy: String(state.scrollY), as: state.name, ...(isGuest() ? { ro: '1' } : {}) })
   frame().src = `/raw/${state.artifact.id}?${query}`
 }
 

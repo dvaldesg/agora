@@ -135,6 +135,7 @@ const start = async () => {
   }
   state.session = await api({ path: '/api/session' })
   document.body.classList.toggle('is-guest', isGuest())
+  document.body.classList.toggle('guest-read', isGuest() && state.session.level === 'read')
   bindUi()
   await Promise.all([refreshArtifacts(), refreshParticipants()])
   const id = isGuest() ? state.session.artifactId : (idFromPath() ?? state.artifacts[0]?.id ?? null)

@@ -1,4 +1,4 @@
-import { HttpError, SCOPES, created, readBody, route } from '../http.js'
+import { HttpError, LINK_LEVELS, SCOPES, created, readBody, route } from '../http.js'
 
 const MAX_LABEL_LENGTH = 60
 
@@ -23,7 +23,9 @@ export function shareRoutes({ store, actorOf, artifactLinkUrl, info }) {
           String(body.label ?? '')
             .trim()
             .slice(0, MAX_LABEL_LENGTH) || null
-        const link = store.createShareLink({ artifactId: id, label, author: actorOf({ req, body, url }) })
+        const level = body.level ?? 'read'
+        if (!LINK_LEVELS[level]) throw new HttpError({ status: 400, message: `level must be one of: ${Object.keys(LINK_LEVELS).join(', ')}` })
+        const link = store.createShareLink({ artifactId: id, label, level, author: actorOf({ req, body, url }) })
         return created({ data: withUrl({ link }) })
       },
     }),
