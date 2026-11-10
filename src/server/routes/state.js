@@ -1,4 +1,4 @@
-import { HttpError, readBody, route } from '../http.js'
+import { HttpError, SCOPES, readBody, route } from '../http.js'
 
 const MAX_VALUE_BYTES = 1024 * 1024
 const MAX_KEY_LENGTH = 200
@@ -19,6 +19,7 @@ export function stateRoutes({ store, bus, actorOf }) {
     route({
       method: 'GET',
       path: /^\/api\/artifacts\/([\w-]+)\/state$/,
+      scope: SCOPES.artifact,
       handler: ({ req, url, params: [id] }) => {
         const scope = scopeFor({ scope: url.searchParams.get('scope'), actor: actorOf({ req, url }) })
         const key = url.searchParams.get('key')
@@ -30,6 +31,7 @@ export function stateRoutes({ store, bus, actorOf }) {
     route({
       method: 'PUT',
       path: /^\/api\/artifacts\/([\w-]+)\/state\/([^/]+)$/,
+      scope: SCOPES.artifact,
       handler: async ({ req, url, params: [id, rawKey] }) => {
         const body = await readBody(req)
         if (!('value' in body)) throw new HttpError({ status: 400, message: 'value is required' })
@@ -46,6 +48,7 @@ export function stateRoutes({ store, bus, actorOf }) {
     route({
       method: 'DELETE',
       path: /^\/api\/artifacts\/([\w-]+)\/state\/([^/]+)$/,
+      scope: SCOPES.artifact,
       handler: ({ req, url, params: [id, rawKey] }) => {
         const key = decodeURIComponent(rawKey)
         const actor = actorOf({ req, url })

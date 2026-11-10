@@ -87,6 +87,33 @@ textarea {
   display: flex;
   align-items: center;
   gap: 9px;
+  flex-shrink: 0;
+  padding: 4px 8px 4px 4px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+}
+.brand:hover {
+  background: var(--surface-2);
+}
+.brand-caret {
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+#toggle-sidebar.is-on .brand-caret {
+  transform: rotate(180deg);
+}
+body.is-guest .brand {
+  cursor: default;
+  pointer-events: none;
+}
+body.is-guest .brand-caret,
+body.is-guest #share,
+body.is-guest .version-actions,
+body.is-guest .restore-btn,
+body.is-guest .item-delete {
+  display: none !important;
 }
 .logo {
   display: grid;
@@ -897,6 +924,21 @@ textarea.input {
   justify-content: flex-end;
   margin-top: 16px;
 }
+.share-section + .share-section {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.share-section h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.share-new {
+  margin-top: 12px;
+}
+.share-new .input {
+  font-family: inherit;
+}
 .share-row {
   display: flex;
   flex-direction: column;
@@ -968,8 +1010,20 @@ textarea.input {
   }
   .crumb-meta,
   .wordmark,
+  .presence-count,
   #comment-mode span {
     display: none;
+  }
+  .bar {
+    gap: 8px;
+    padding: 0 10px;
+  }
+  .crumb {
+    padding-left: 6px;
+    min-width: 0;
+  }
+  .btn {
+    padding: 0 10px;
   }
   .versions-menu {
     left: 8px;

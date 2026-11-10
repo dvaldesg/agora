@@ -1,6 +1,6 @@
 import { createPatch } from 'diff'
 import { applyEdits } from '../../edits.js'
-import { HttpError, created, readBody, route } from '../http.js'
+import { HttpError, SCOPES, created, isScoped, readBody, route } from '../http.js'
 import { cleanTitle, stripHtml } from '../input.js'
 
 const diffBetween = ({ id, from, to }) => createPatch(`${id}.html`, from.html, to.html, `v${from.viewedVersion}`, `v${to.viewedVersion}`)
@@ -30,7 +30,14 @@ export function artifactRoutes({ store, bus, actorOf }) {
   }
 
   return [
-    route({ method: 'GET', path: /^\/api\/artifacts$/, handler: () => ({ artifacts: store.listArtifacts() }) }),
+    route({
+      method: 'GET',
+      path: /^\/api\/artifacts$/,
+      scope: SCOPES.filtered,
+      handler: ({ access }) => ({
+        artifacts: store.listArtifacts().filter((artifact) => !isScoped({ access }) || artifact.id === access.artifactId),
+      }),
+    }),
 
     route({
       method: 'POST',
@@ -48,6 +55,7 @@ export function artifactRoutes({ store, bus, actorOf }) {
     route({
       method: 'GET',
       path: /^\/api\/artifacts\/([\w-]+)$/,
+      scope: SCOPES.artifact,
       handler: ({ params: [id], url }) => {
         const version = url.searchParams.get('v')
         const since = url.searchParams.get('since')
@@ -68,7 +76,12 @@ export function artifactRoutes({ store, bus, actorOf }) {
       },
     }),
 
-    route({ method: 'GET', path: /^\/api\/artifacts\/([\w-]+)\/versions$/, handler: ({ params: [id] }) => ({ versions: store.listVersions({ id }) }) }),
+    route({
+      method: 'GET',
+      path: /^\/api\/artifacts\/([\w-]+)\/versions$/,
+      scope: SCOPES.artifact,
+      handler: ({ params: [id] }) => ({ versions: store.listVersions({ id }) }),
+    }),
 
     route({
       method: 'PUT',

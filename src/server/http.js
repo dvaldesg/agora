@@ -12,7 +12,15 @@ export class HttpError extends Error {
   }
 }
 
-export const route = ({ method, path, handler }) => ({ method, path, handler })
+export const SCOPES = Object.freeze({ open: 'open', artifact: 'artifact', comment: 'comment', filtered: 'filtered' })
+
+export const route = ({ method, path, handler, scope }) => ({ method, path, handler, scope })
+
+export const FULL_ACCESS = Object.freeze({ scope: 'full' })
+
+export const artifactAccess = ({ artifactId }) => Object.freeze({ scope: 'artifact', artifactId })
+
+export const isScoped = ({ access }) => access.scope === 'artifact'
 
 export const created = ({ data }) => ({ status: 201, data })
 

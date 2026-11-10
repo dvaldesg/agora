@@ -4,12 +4,17 @@ import { isRelevant } from '../relevance.js'
 const HOOK_TIMEOUT_MS = 5000
 
 export function createBus({ store }) {
-  const streams = new Set()
+  const streams = new Map()
   const waiters = new Set()
 
+  const send = ({ stream, data }) => {
+    const project = streams.get(stream)
+    const visible = project ? project({ data }) : data
+    if (visible) stream.write(`data: ${JSON.stringify(visible)}\n\n`)
+  }
+
   const broadcast = ({ data }) => {
-    const frame = `data: ${JSON.stringify(data)}\n\n`
-    for (const stream of streams) stream.write(frame)
+    for (const stream of streams.keys()) send({ stream, data })
   }
 
   const deliverHooks = ({ event }) => {
@@ -59,10 +64,10 @@ export function createBus({ store }) {
     }
   }
 
-  const attach = ({ stream }) => {
-    streams.add(stream)
+  const attach = ({ stream, project }) => {
+    streams.set(stream, project ?? null)
     return () => streams.delete(stream)
   }
 
-  return { emit, broadcast, poll, attach }
+  return { emit, broadcast, poll, attach, send }
 }

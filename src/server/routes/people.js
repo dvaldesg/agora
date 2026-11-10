@@ -1,4 +1,4 @@
-import { HttpError, created, readBody, route } from '../http.js'
+import { HttpError, SCOPES, created, isScoped, readBody, route } from '../http.js'
 import { cleanName } from '../input.js'
 
 const parseHookUrl = ({ value }) => {
@@ -16,6 +16,7 @@ export function peopleRoutes({ store, bus, presence, directory, actorOf }) {
     route({
       method: 'GET',
       path: /^\/api\/participants$/,
+      scope: SCOPES.open,
       handler: () => {
         const online = new Set(presence.list().map((peer) => peer.name.toLowerCase()))
         return {
@@ -39,9 +40,11 @@ export function peopleRoutes({ store, bus, presence, directory, actorOf }) {
     route({
       method: 'GET',
       path: /^\/api\/messages$/,
-      handler: ({ url }) => ({
+      scope: SCOPES.filtered,
+      handler: ({ url, access }) => ({
         messages: store.listMessages({
-          artifactId: url.searchParams.get('artifact') || undefined,
+          artifactId: isScoped({ access }) ? access.artifactId : url.searchParams.get('artifact') || undefined,
+          onlyArtifact: isScoped({ access }),
           participant: url.searchParams.get('participant') || undefined,
         }),
       }),
@@ -50,13 +53,15 @@ export function peopleRoutes({ store, bus, presence, directory, actorOf }) {
     route({
       method: 'POST',
       path: /^\/api\/messages$/,
-      handler: async ({ req, url }) => {
+      scope: SCOPES.filtered,
+      handler: async ({ req, url, access }) => {
         const body = await readBody(req)
         const text = String(body.body ?? '').trim()
         if (!text) throw new HttpError({ status: 400, message: 'body is required' })
         const sender = actorOf({ req, body, url })
         const recipient = directory.resolveName({ name: body.to ?? 'all' }) ?? cleanName({ value: body.to })
-        const message = store.createMessage({ artifactId: body.artifactId, sender, recipient, body: text })
+        const artifactId = isScoped({ access }) ? access.artifactId : body.artifactId
+        const message = store.createMessage({ artifactId, sender, recipient, body: text })
         bus.emit({ type: 'message.sent', artifactId: message.artifactId, actor: sender, target: recipient, payload: message })
         return created({ data: message })
       },

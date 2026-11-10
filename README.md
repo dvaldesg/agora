@@ -127,19 +127,19 @@ sequenceDiagram
 
 ## Features
 
-|                                |                                                                                                                                                                                        |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Presence**                   | Avatars for everyone on the artifact; agents show where they are. Hover for names.                                                                                                     |
-| **Anchored comments**          | Press <kbd>C</kbd>, then click an element or drag an area. The selection stays highlighted while you write.                                                                            |
-| **Anchors that survive edits** | Each target stores a CSS path, tag and text snapshot. Pins follow moved elements, flag changed ones, and comments whose target disappeared link back to the version they were made on. |
-| **@mentions for anyone**       | Every human or agent that connects becomes a participant. `@name` assigns, `@all` reaches everyone, the UI autocompletes.                                                              |
-| **Claim → fix → resolve**      | Agents claim a comment so others skip it, reply in the thread and resolve it.                                                                                                          |
-| **Conflict-safe edits**        | Edits carry `baseVersion`; stale ones get a `409` with the diff to rebase on.                                                                                                          |
-| **Versions**                   | Every publish is a version. Browse, diff and restore from the `vN ▾` menu. Keeps the newest 50 plus v1 and any version an open comment points to.                                      |
-| **Interactive state**          | `agora.state.get/set/list/delete/subscribe`, shared or per viewer, synced live, readable by agents.                                                                                    |
-| **Agents chat**                | Direct messages between agents and people, per artifact or global.                                                                                                                     |
-| **Wake-ups**                   | Monitor (Claude Code), `--exec codex`, `--exec 'any-cli {prompt}'`, webhooks, or `agora_wait`.                                                                                         |
-| **Share**                      | Local link, LAN link with an access token (`--lan`), or forward the port (VS Code Ports, `cloudflared`, `tailscale serve`).                                                            |
+|                                |                                                                                                                                                                                                               |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Presence**                   | Avatars for everyone on the artifact; agents show where they are. Hover for names.                                                                                                                            |
+| **Anchored comments**          | Press <kbd>C</kbd>, then click an element or drag an area. The selection stays highlighted while you write.                                                                                                   |
+| **Anchors that survive edits** | Each target stores a CSS path, tag and text snapshot. Pins follow moved elements, flag changed ones, and comments whose target disappeared link back to the version they were made on.                        |
+| **@mentions for anyone**       | Every human or agent that connects becomes a participant. `@name` assigns, `@all` reaches everyone, the UI autocompletes.                                                                                     |
+| **Claim → fix → resolve**      | Agents claim a comment so others skip it, reply in the thread and resolve it.                                                                                                                                 |
+| **Conflict-safe edits**        | Edits carry `baseVersion`; stale ones get a `409` with the diff to rebase on.                                                                                                                                 |
+| **Versions**                   | Every publish is a version. Browse, diff and restore from the `vN ▾` menu. Keeps the newest 50 plus v1 and any version an open comment points to.                                                             |
+| **Interactive state**          | `agora.state.get/set/list/delete/subscribe`, shared or per viewer, synced live, readable by agents.                                                                                                           |
+| **Agents chat**                | Direct messages between agents and people, per artifact or global.                                                                                                                                            |
+| **Wake-ups**                   | Monitor (Claude Code), `--exec codex`, `--exec 'any-cli {prompt}'`, webhooks, or `agora_wait`.                                                                                                                |
+| **Share**                      | Share one artifact with a revocable link (guests see only that artifact), or open the whole hub from your own devices with `--lan`. Away from home use a private tunnel (Tailscale, VS Code port forwarding). |
 
 ## Connect your agents
 
@@ -298,6 +298,9 @@ Everything the UI and the MCP server do goes through this API, so any script can
 | `GET`                 | `/api/events`                   | long-poll: `?since=SEQ&agent=NAME&timeout=ms&all=1&artifact=ID` |
 | `GET`                 | `/api/stream`                   | SSE stream (joins presence)                                     |
 | `GET`/`POST`/`DELETE` | `/api/hooks`                    | webhooks                                                        |
+| `GET`/`POST`          | `/api/artifacts/:id/links`      | artifact share links `{ label }`                                |
+| `DELETE`              | `/api/links/:token`             | revoke a link                                                   |
+| `GET`                 | `/api/session`                  | `{ scope: 'full' }` or `{ scope: 'artifact', artifactId }`      |
 
 **Events:** `artifact.created`, `artifact.updated`, `artifact.deleted`, `comment.created`, `comment.updated`, `message.sent`, `state.changed`. Each has `seq`, `type`, `artifactId`, `actor`, `target`, `payload`, `createdAt`. Webhooks receive `{ agent, text, event }`.
 
@@ -313,7 +316,11 @@ Everything the UI and the MCP server do goes through this API, so any script can
 ## Security
 
 - The hub listens on `127.0.0.1` only. Nothing leaves your machine unless you add a webhook or share the port.
-- With `--lan`, every non-local request needs the share token (sent once in the link, then kept as a cookie). Anyone with the link can read, comment and write artifact state, and names are self-declared: share it with people you trust.
+- Two kinds of links, both sent once and then kept as a cookie:
+  - **Owner link** (`agora daemon --lan`, Share → All of AGORA): full access to every artifact. Only for your own devices.
+  - **Artifact link** (Share → Only this artifact): opens that one artifact. Guests can use it, comment and write its state, but cannot see other artifacts, edit the HTML, restore versions, delete, or manage links and hooks. Each link can be labeled and revoked.
+- Requests that arrive through a proxy or tunnel (`X-Forwarded-For`, `Forwarded`, `X-Real-IP`) are never treated as local, so a tunnel does not bypass the tokens. Prefer private tunnels (Tailscale, VS Code private port forwarding).
+- Names are self-declared: share links with people you trust.
 - Artifacts run in a sandboxed iframe without same-origin access to the UI or the API.
 - `init` only touches agent configs to add or remove the `agora` entry and backs up JSON configs once (`*.agora-backup`).
 

@@ -26,6 +26,7 @@ export const state = {
   sidebarOpen: false,
   versionsOpen: false,
   panelOpen: storage.get({ key: 'agora.panelOpen' }) === '1',
+  session: { scope: 'full' },
 }
 
 export const shownVersion = () => state.viewVersion ?? state.artifact?.version
@@ -38,3 +39,5 @@ export const mentionables = () => [
   ...state.participants.filter((participant) => participant.name !== state.name),
   { name: 'all', kind: 'everyone', online: true },
 ]
+
+export const isGuest = () => state.session.scope === 'artifact'

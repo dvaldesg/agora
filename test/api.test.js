@@ -238,3 +238,56 @@ test('deleting an artifact removes everything attached to it and announces it', 
     ['artifact.deleted'],
   )
 })
+
+test('artifact share links only open that artifact, and proxied requests need a token', async () => {
+  const { id: sharedId } = await createArtifact()
+  const { id: privateId } = await createArtifact()
+  const remote = { 'x-forwarded-for': '203.0.113.7' }
+  const as = async ({ path, method = 'GET', body, cookie }) => {
+    const headers = { ...remote, ...(cookie ? { cookie } : {}), ...(body ? { 'content-type': 'application/json' } : {}) }
+    const res = await fetch(base + path, { method, headers, body: body ? JSON.stringify(body) : undefined })
+    return {
+      status: res.status,
+      cookie: res.headers.get('set-cookie')?.split(';')[0],
+      data: res.headers.get('content-type')?.includes('json') ? await res.json() : null,
+    }
+  }
+
+  assert.equal((await as({ path: '/api/artifacts' })).status, 401)
+
+  const { data: link } = await call({ path: `/api/artifacts/${sharedId}/links`, method: 'POST', actor: 'diego', body: { label: 'mamá' } })
+  assert.match(link.url, new RegExp(`/a/${sharedId}\\?s=${link.token}$`))
+
+  const opened = await as({ path: `/a/${sharedId}?s=${link.token}` })
+  assert.equal(opened.status, 200)
+  const cookie = opened.cookie
+  assert.match(cookie, /^agora_s=/)
+
+  const session = await as({ path: '/api/session', cookie })
+  assert.deepEqual([session.data.scope, session.data.artifactId], ['artifact', sharedId])
+  assert.deepEqual(
+    (await as({ path: '/api/artifacts', cookie })).data.artifacts.map((artifact) => artifact.id),
+    [sharedId],
+  )
+  assert.equal((await as({ path: `/api/artifacts/${sharedId}`, cookie })).status, 200)
+  assert.equal((await as({ path: `/raw/${sharedId}`, cookie })).status, 200)
+  assert.equal((await as({ path: `/api/artifacts/${sharedId}/state/k`, method: 'PUT', cookie, body: { value: 1, author: 'mamá' } })).status, 200)
+  assert.equal((await as({ path: `/api/artifacts/${sharedId}/comments`, method: 'POST', cookie, body: { body: 'hola', author: 'mamá' } })).status, 201)
+
+  const forbidden = [
+    { path: `/api/artifacts/${privateId}` },
+    { path: `/raw/${privateId}` },
+    { path: `/api/artifacts/${privateId}/state?key=k` },
+    { path: `/api/artifacts/${sharedId}`, method: 'DELETE' },
+    { path: `/api/artifacts/${sharedId}`, method: 'PUT', body: { baseVersion: 1, html: '<p>x</p>' } },
+    { path: `/api/artifacts/${sharedId}/links` },
+    { path: '/api/hooks' },
+  ]
+  for (const request of forbidden) assert.equal((await as({ ...request, cookie })).status, 403, `${request.method ?? 'GET'} ${request.path}`)
+
+  const scopedMessage = await as({ path: '/api/messages', method: 'POST', cookie, body: { to: 'all', body: 'hola', author: 'mamá', artifactId: privateId } })
+  assert.equal(scopedMessage.data.artifactId, sharedId)
+
+  await call({ path: `/api/links/${link.token}`, method: 'DELETE' })
+  assert.equal((await as({ path: `/api/artifacts/${sharedId}`, cookie })).status, 401)
+})

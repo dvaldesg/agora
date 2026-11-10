@@ -1,8 +1,9 @@
 import { $, storage, toast } from './dom.js'
-import { openThreads, state } from './store.js'
+import { isGuest, openThreads, state } from './store.js'
 import { refreshVersions } from './versions.js'
 
 export const setSidebar = ({ open }) => {
+  if (open && isGuest()) return
   state.sidebarOpen = open
   $('#sidebar').classList.toggle('is-closed', !open)
   $('#toggle-sidebar').classList.toggle('is-on', open)

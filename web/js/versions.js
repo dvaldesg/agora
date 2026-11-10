@@ -52,7 +52,7 @@ export const renderVersionBanner = () => {
   banner.replaceChildren(
     h('span', null, `Viewing v${state.viewVersion}${details}`),
     h('button', { class: 'btn btn-sm', onclick: () => showDiff({ from: state.viewVersion }) }, 'Diff vs latest'),
-    h('button', { class: 'btn btn-sm', onclick: () => restoreVersion({ version: state.viewVersion }) }, 'Restore'),
+    h('button', { class: 'btn btn-sm restore-btn', onclick: () => restoreVersion({ version: state.viewVersion }) }, 'Restore'),
     h('button', { class: 'btn btn-sm btn-primary', onclick: () => viewVersion({ version: null }) }, `Back to v${state.artifact.version}`),
   )
 }

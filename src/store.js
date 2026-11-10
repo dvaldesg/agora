@@ -72,7 +72,15 @@ create table if not exists hooks (
   url text not null,
   created_at text not null
 );
+create table if not exists share_links (
+  token text primary key,
+  artifact_id text not null references artifacts(id),
+  label text,
+  created_by text not null,
+  created_at text not null
+);
 create index if not exists comments_artifact on comments(artifact_id, created_at);
+create index if not exists share_links_artifact on share_links(artifact_id);
 create index if not exists messages_artifact on messages(artifact_id, created_at);
 create index if not exists events_artifact on events(artifact_id, seq);
 `
@@ -251,7 +259,7 @@ export function openStore({ file, maxVersions = 50 }) {
   const deleteArtifact = ({ id }) =>
     transaction(() => {
       const artifact = toArtifact(requireArtifactRow({ id }))
-      const tables = ['artifact_state', 'messages', 'versions']
+      const tables = ['artifact_state', 'messages', 'versions', 'share_links']
       db.prepare('delete from comments where artifact_id = ? and parent_id is not null').run(id)
       db.prepare('delete from comments where artifact_id = ?').run(id)
       tables.forEach((table) => db.prepare(`delete from ${table} where artifact_id = ?`).run(id))
@@ -334,11 +342,11 @@ export function openStore({ file, maxVersions = 50 }) {
     return toMessage(db.prepare('select * from messages where id = ?').get(id))
   }
 
-  const listMessages = ({ artifactId, participant, limit = 100 }) => {
+  const listMessages = ({ artifactId, participant, onlyArtifact = false, limit = 100 }) => {
     const clauses = []
     const params = []
     if (artifactId) {
-      clauses.push('(artifact_id = ? or artifact_id is null)')
+      clauses.push(onlyArtifact ? 'artifact_id = ?' : '(artifact_id = ? or artifact_id is null)')
       params.push(artifactId)
     }
     if (participant) {
@@ -412,6 +420,30 @@ export function openStore({ file, maxVersions = 50 }) {
 
   const deleteHook = ({ id }) => db.prepare('delete from hooks where id = ?').run(id).changes > 0
 
+  const toShareLink = (row) => ({ token: row.token, artifactId: row.artifact_id, label: row.label, createdBy: row.created_by, createdAt: row.created_at })
+
+  const listShareLinks = ({ artifactId }) => db.prepare('select * from share_links where artifact_id = ? order by created_at').all(artifactId).map(toShareLink)
+
+  const findShareLink = ({ token }) => {
+    const row = db.prepare('select * from share_links where token = ?').get(token)
+    return row ? toShareLink(row) : null
+  }
+
+  const createShareLink = ({ artifactId, label, author }) => {
+    requireArtifactRow({ id: artifactId })
+    const token = randomBytes(18).toString('base64url')
+    db.prepare('insert into share_links (token, artifact_id, label, created_by, created_at) values (?, ?, ?, ?, ?)').run(
+      token,
+      artifactId,
+      label ?? null,
+      author,
+      now(),
+    )
+    return findShareLink({ token })
+  }
+
+  const deleteShareLink = ({ token }) => db.prepare('delete from share_links where token = ?').run(token).changes > 0
+
   const appendEvent = ({ type, artifactId, actor, target, payload }) => {
     const result = db
       .prepare('insert into events (type, artifact_id, actor, target, payload, created_at) values (?, ?, ?, ?, ?, ?)')
@@ -446,6 +478,10 @@ export function openStore({ file, maxVersions = 50 }) {
     listHooks,
     createHook,
     deleteHook,
+    listShareLinks,
+    findShareLink,
+    createShareLink,
+    deleteShareLink,
     appendEvent,
     eventsSince,
     headSeq,

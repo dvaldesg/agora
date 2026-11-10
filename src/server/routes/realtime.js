@@ -1,13 +1,24 @@
 import { isRelevant } from '../../relevance.js'
-import { HttpError, LOOPBACK, readBody, route } from '../http.js'
+import { HttpError, LOOPBACK, SCOPES, isScoped, readBody, route } from '../http.js'
 import { cleanName } from '../input.js'
 
 const MAX_POLL_MS = 55_000
 const HEARTBEAT_MS = 15_000
+const PEER_EVENTS = new Set(['hello', 'presence'])
+
+const peersFor = ({ peers, access }) => (isScoped({ access }) ? peers.filter((peer) => peer.artifactId === access.artifactId) : peers)
+
+const projectionFor = ({ access }) => {
+  if (!isScoped({ access })) return null
+  return ({ data }) => {
+    if (PEER_EVENTS.has(data.type)) return { ...data, peers: peersFor({ peers: data.peers, access }) }
+    return data.artifactId === access.artifactId ? data : null
+  }
+}
 
 export function realtimeRoutes({ store, bus, presence, info, shutdown }) {
   return [
-    route({ method: 'GET', path: /^\/api\/health$/, handler: () => ({ ok: true, seq: store.headSeq(), ...info }) }),
+    route({ method: 'GET', path: /^\/api\/health$/, scope: SCOPES.open, handler: () => ({ ok: true, seq: store.headSeq(), ...info }) }),
 
     route({
       method: 'POST',
@@ -32,14 +43,21 @@ export function realtimeRoutes({ store, bus, presence, info, shutdown }) {
       },
     }),
 
-    route({ method: 'GET', path: /^\/api\/presence$/, handler: () => ({ peers: presence.list() }) }),
+    route({
+      method: 'GET',
+      path: /^\/api\/presence$/,
+      scope: SCOPES.filtered,
+      handler: ({ access }) => ({ peers: peersFor({ peers: presence.list(), access }) }),
+    }),
 
     route({
       method: 'POST',
       path: /^\/api\/presence\/([\w-]+)$/,
-      handler: async ({ req, params: [connId] }) => {
+      scope: SCOPES.open,
+      handler: async ({ req, params: [connId], access }) => {
         const body = await readBody(req)
-        if (!presence.focus({ id: connId, artifactId: body.artifactId ?? null })) throw new HttpError({ status: 404, message: 'unknown connection' })
+        const artifactId = isScoped({ access }) ? access.artifactId : (body.artifactId ?? null)
+        if (!presence.focus({ id: connId, artifactId })) throw new HttpError({ status: 404, message: 'unknown connection' })
         return { ok: true }
       },
     }),
@@ -47,19 +65,20 @@ export function realtimeRoutes({ store, bus, presence, info, shutdown }) {
     route({
       method: 'GET',
       path: /^\/api\/stream$/,
-      handler: ({ req, res, url }) => {
+      scope: SCOPES.open,
+      handler: ({ req, res, url, access }) => {
         res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive', 'x-accel-buffering': 'no' })
         const name = cleanName({ value: url.searchParams.get('name') })
-        const kind = url.searchParams.get('kind') === 'agent' ? 'agent' : 'human'
+        const kind = url.searchParams.get('kind') === 'agent' && !isScoped({ access }) ? 'agent' : 'human'
         store.upsertParticipant({ name, kind })
         const connId = presence.join({
           name,
           kind,
-          artifactId: url.searchParams.get('artifact') || null,
+          artifactId: isScoped({ access }) ? access.artifactId : url.searchParams.get('artifact') || null,
           remote: !LOOPBACK.has(req.socket.remoteAddress),
         })
-        res.write(`data: ${JSON.stringify({ type: 'hello', connId, seq: store.headSeq(), peers: presence.list() })}\n\n`)
-        const detach = bus.attach({ stream: res })
+        const detach = bus.attach({ stream: res, project: projectionFor({ access }) })
+        bus.send({ stream: res, data: { type: 'hello', connId, seq: store.headSeq(), peers: presence.list() } })
         const heartbeat = setInterval(() => res.write(': ping\n\n'), HEARTBEAT_MS)
         req.on('close', () => {
           clearInterval(heartbeat)

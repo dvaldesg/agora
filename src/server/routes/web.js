@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { extname, join, normalize, sep } from 'node:path'
-import { HttpError, route, sendText } from '../http.js'
+import { HttpError, SCOPES, route, sendText } from '../http.js'
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -34,6 +34,7 @@ export function webRoutes({ store, webDir, shareLinks }) {
     route({
       method: 'GET',
       path: /^\/raw\/([\w-]+)$/,
+      scope: SCOPES.artifact,
       handler: ({ res, url, params: [id] }) => {
         const version = url.searchParams.get('v')
         const artifact = store.getArtifact({ id, version: version ? Number(version) : undefined })
@@ -45,6 +46,7 @@ export function webRoutes({ store, webDir, shareLinks }) {
     route({
       method: 'GET',
       path: /^\/(?:a\/[\w-]+)?$/,
+      scope: SCOPES.open,
       handler: ({ res }) => {
         sendText({ res, type: MIME['.html'], body: readWeb({ file: 'index.html' }) })
         return null
@@ -54,6 +56,7 @@ export function webRoutes({ store, webDir, shareLinks }) {
     route({
       method: 'GET',
       path: /^\/static\/([\w./-]+)$/,
+      scope: SCOPES.open,
       handler: ({ res, params: [path] }) => {
         const { type, body } = staticFile({ path })
         sendText({ res, type, body })

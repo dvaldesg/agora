@@ -1,4 +1,4 @@
-import { HttpError, created, readBody, route } from '../http.js'
+import { HttpError, SCOPES, created, readBody, route } from '../http.js'
 import { cleanAnchor } from '../input.js'
 
 const STATUSES = new Set(['open', 'claimed', 'resolved'])
@@ -13,18 +13,21 @@ export function commentRoutes({ store, bus, directory, actorOf }) {
     route({
       method: 'GET',
       path: /^\/api\/artifacts\/([\w-]+)\/comments$/,
+      scope: SCOPES.artifact,
       handler: ({ params: [id], url }) => ({ comments: store.listComments({ artifactId: id, status: url.searchParams.get('status') || undefined }) }),
     }),
 
     route({
       method: 'POST',
       path: /^\/api\/artifacts\/([\w-]+)\/comments$/,
+      scope: SCOPES.artifact,
       handler: async ({ req, url, params: [id] }) => {
         const body = await readBody(req)
         const text = String(body.body ?? '').trim()
         if (!text) throw new HttpError({ status: 400, message: 'body is required' })
         const author = actorOf({ req, body, url })
         const parent = body.parentId ? store.getComment({ id: body.parentId }) : null
+        if (parent && parent.artifactId !== id) throw new HttpError({ status: 400, message: 'parent comment belongs to another artifact' })
         const assignee = directory.resolveName({ name: body.assignee }) ?? directory.mentionsIn({ body: text })[0] ?? null
         const version = Number.isInteger(body.version) ? store.getArtifact({ id, version: body.version }).viewedVersion : undefined
         const comment = store.createComment({
@@ -50,6 +53,7 @@ export function commentRoutes({ store, bus, directory, actorOf }) {
     route({
       method: 'POST',
       path: /^\/api\/comments\/([\w-]+)\/status$/,
+      scope: SCOPES.comment,
       handler: async ({ req, url, params: [commentId] }) => {
         const body = await readBody(req)
         if (!STATUSES.has(body.status)) throw new HttpError({ status: 400, message: 'status must be open|claimed|resolved' })

@@ -1,3 +1,4 @@
+import { api } from './api.js'
 import { handleStateRequest } from './bridge.js'
 import { markChatRead, refreshParticipants, submitMessage } from './chat.js'
 import { renderComments, revealThread, setAnchor, submitComment } from './comments.js'
@@ -9,7 +10,7 @@ import { setPanel, setSidebar, setVersionsMenu, switchTab } from './layout.js'
 import { attachMentions, submitOnModEnter } from './mentions.js'
 import { idFromPath, importFile, refreshArtifacts, renderArtifactList, selectArtifact } from './navigation.js'
 import { openShare } from './share.js'
-import { shownVersion, state } from './store.js'
+import { isGuest, shownVersion, state } from './store.js'
 
 const reportErrors =
   (task) =>
@@ -132,9 +133,11 @@ const start = async () => {
     state.name = (await askName()) || `guest-${Math.random().toString(36).slice(2, 6)}`
     storage.set({ key: 'agora.name', value: state.name })
   }
+  state.session = await api({ path: '/api/session' })
+  document.body.classList.toggle('is-guest', isGuest())
   bindUi()
   await Promise.all([refreshArtifacts(), refreshParticipants()])
-  const id = idFromPath() ?? state.artifacts[0]?.id ?? null
+  const id = isGuest() ? state.session.artifactId : (idFromPath() ?? state.artifacts[0]?.id ?? null)
   await selectArtifact({ id, push: Boolean(id) && !idFromPath() })
   connectStream()
 }
